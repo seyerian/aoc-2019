@@ -1,6 +1,6 @@
 require "./intcode_computer"
 
-program = File.read_lines("2a-input")[0].split(',').map{|s|s.to_i32}
+program = File.read_lines("02a-input")[0].split(',').map{|s|s.to_i32}
 
 program[1] = 12
 program[2] = 2

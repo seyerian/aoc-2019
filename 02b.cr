@@ -1,6 +1,6 @@
 require "./intcode_computer"
 
-program = File.read_lines("2a-input")[0].split(',').map{|s|s.to_i32}
+program = File.read_lines("02a-input")[0].split(',').map{|s|s.to_i32}
 
 (1..99).each do |noun|
   (1..99).each do |verb|
