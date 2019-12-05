@@ -1,0 +1,9 @@
+name: Aoc2019
+version: 0.1.0
+
+authors:
+  - seyerian <seyerian@protonmail.com>
+
+crystal: 0.31.1
+
+license: MIT
