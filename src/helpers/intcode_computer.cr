@@ -1,51 +1,55 @@
+alias ICData = Hash( Symbol, String | Int32 | IntcodeComputer )
+
 class IntcodeComputer
   @program : Array(Int32)
   property memory : Array(Int32)
-  private def mem; memory; end
+  property data : ICData
   private property pointer : Int32
   private property halt : Bool
   setter input : Proc(IntcodeComputer, Int32)
+  getter input_count : Int32
   setter output : Proc(IntcodeComputer, Int32, Bool)
   getter outputs : Array(Int32)
 
-  def initialize(program_string : String)
+  def initialize( program_string : String, @data = ICData.new )
     @program = program_string.split(',').map{|s|s.to_i32}
     @memory = @program.dup
     @pointer = 0
     @halt = false
     @debug = false
     @input = ->(ic : IntcodeComputer) { 0 }
+    @input_count = 0
     @output = ->(ic : IntcodeComputer, o : Int32) { false }
     @outputs = [] of Int32
   end
 
-  #debug "#{inst}|ADD/#{modes}<#{p}>: #{vals[0]}[#{mem[p1]}]<#{p1}> + #{vals[1]}[#{mem[p2]}]<#{p2}> => #{mem[a]}[#{a}]<#{p3}>"
+  #debug "#{inst}|ADD/#{modes}<#{p}>: #{vals[0]}[#{memory[p1]}]<#{p1}> + #{vals[1]}[#{memory[p2]}]<#{p2}> => #{memory[a]}[#{a}]<#{p3}>"
 
   def op_add(mode_string)
     vals = get_values( mode_string, 3 )
-    write_address = mem[pointer+3]
-    mem[ write_address ] = vals[0] + vals[1]
+    write_address = memory[pointer+3]
+    memory[ write_address ] = vals[0] + vals[1]
     @pointer += 4
   end
 
   def op_multiply(mode_string)
     vals = get_values( mode_string, 3 )
-    write_address = mem[pointer+3]
-    mem[ write_address ] = vals[0] * vals[1]
+    write_address = memory[pointer+3]
+    memory[ write_address ] = vals[0] * vals[1]
     @pointer += 4
   end
   
   def op_store(mode_string)
     #vals = get_values( mode_string, 1 )
-    write_address = mem[pointer+1]
-    mem[ write_address ] = input
+    write_address = memory[pointer+1]
+    memory[ write_address ] = input
     @pointer += 2
   end
 
   def op_output(mode_string)
     vals = get_values( mode_string, 1 )
-    output vals[0]
     @pointer += 2
+    output vals[0]
   end
 
   def op_jump_if_true(mode_string)
@@ -60,24 +64,26 @@ class IntcodeComputer
 
   def op_less_than(mode_string)
     vals = get_values( mode_string, 3 )
-    write_address = mem[pointer+3]
-    mem[ write_address ] = vals[0] < vals[1] ? 1 : 0
+    write_address = memory[pointer+3]
+    memory[ write_address ] = vals[0] < vals[1] ? 1 : 0
     @pointer += 4
   end
 
   def op_equals(mode_string)
     vals = get_values( mode_string, 3 )
-    write_address = mem[pointer+3]
-    mem[ write_address ] = vals[0] == vals[1] ? 1 : 0
+    write_address = memory[pointer+3]
+    memory[ write_address ] = vals[0] == vals[1] ? 1 : 0
     @pointer += 4
+  end
+
+  def reset
+    @pointer = 0
+    @halt = false
   end
    
   def run
-    @pointer = 0
-    @halt = false
-
     until halt
-      inst = mem[pointer].to_s
+      inst = memory[pointer].to_s
       opcode = inst[ inst.size-2, 2 ].to_i
       mode_string = inst.rchop.rchop # opcode is 2 digits
       case opcode
@@ -99,14 +105,14 @@ class IntcodeComputer
 
   private def get_values(mode_string : String, num_parameters : Int8)
     parameters = num_parameters.times.reduce([] of Int32) do |arr, i|
-      arr.push( mem[pointer + i + 1] )
+      arr.push( memory[pointer + i + 1] )
       arr
     end
     modes = mode_string.reverse.ljust( num_parameters, '0' )
     values = modes.chars.map_with_index do |mode, i|
       case mode
       when '0' # position
-        mem[ parameters[i] ]
+        memory[ parameters[i] ]
       when '1' # immediate
         parameters[i]
       end || 0
@@ -115,6 +121,7 @@ class IntcodeComputer
   end
 
   private def input
+    @input_count += 1
     @input.call(self)
   end
 
