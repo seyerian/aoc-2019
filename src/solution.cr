@@ -9,11 +9,8 @@ module Aoc2019
     def self.solution
       day = self.to_s.split("::").last
       puts "== Day #{day} =="
-      puts "Part one:"
-      part1
-      puts "\nPart two:"
-      part2
-      puts "\n"
+      puts "\nPart one:", part1
+      puts "\nPart two:", part2
     end
   end
 end
