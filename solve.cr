@@ -8,4 +8,4 @@ require "./src/Aoc2019"
 #puts Aoc2019::Six.solution
 #puts Aoc2019::Seven.solution
 #puts Aoc2019::Eight.solution
-puts Aoc2019::Nine.solution
+#puts Aoc2019::Nine.solution

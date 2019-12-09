@@ -3,7 +3,7 @@ class Aoc2019::Five < Aoc2019::Solution
   def self.part1
     program = File.read("inputs/05")
     comp = IntcodeComputer.new program
-    comp.input = ->(ic : IntcodeComputer) { 1 }
+    comp.input = ->(ic : IntcodeComputer) { 1.to_i64 }
     comp.run
     comp.outputs.last
   end
@@ -11,7 +11,7 @@ class Aoc2019::Five < Aoc2019::Solution
   def self.part2
     program = File.read("inputs/05")
     comp = IntcodeComputer.new program
-    comp.input = ->(ic : IntcodeComputer) { 5 }
+    comp.input = ->(ic : IntcodeComputer) { 5.to_i64 }
     comp.run
     comp.outputs.last
   end
@@ -26,7 +26,7 @@ class Aoc2019::Five < Aoc2019::Solution
       else ""
       end
     comp = IntcodeComputer.new program
-    comp.input = ->(ic : IntcodeComputer) { input }
+    comp.input = ->(ic : IntcodeComputer) { input.to_i64 }
     comp.run
     comp.outputs.last
   end
@@ -39,7 +39,7 @@ class Aoc2019::Five < Aoc2019::Solution
       else ""
       end
     comp = IntcodeComputer.new program
-    comp.input = ->(ic : IntcodeComputer) { input }
+    comp.input = ->(ic : IntcodeComputer) { input.to_i64 }
     comp.run
     comp.outputs.last
   end
@@ -49,7 +49,7 @@ class Aoc2019::Five < Aoc2019::Solution
     # output 1000 if the input value is equal to 8, or output 1001 if the input value is greater than 8.
     program = File.read("inputs/test/05-larger")
     comp = IntcodeComputer.new program
-    comp.input = ->(ic : IntcodeComputer) { 100 }
+    comp.input = ->(ic : IntcodeComputer) { 100.to_i64 }
     comp.output = ->(ic : IntcodeComputer, o : Int32) {
       puts("\n  OUTPUT: #{o}\n\n")
       true

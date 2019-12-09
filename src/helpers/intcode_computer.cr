@@ -1,86 +1,97 @@
-alias ICData = Hash( Symbol, String | Int32 | IntcodeComputer )
+alias ICData = Hash( Symbol, String | Int32 | Int64 | IntcodeComputer )
 
 class IntcodeComputer
-  @program : Array(Int32)
-  property memory : Array(Int32)
+  @program : Array(Int64)
+  property memory : Array(Int64)
   property data : ICData
-  private property pointer : Int32
+  private property pointer : Int64
   private property halt : Bool
-  setter input : Proc(IntcodeComputer, Int32)
-  getter input_count : Int32
-  setter output : Proc(IntcodeComputer, Int32, Bool)
-  getter outputs : Array(Int32)
+  private property relative_base : Int32
+  setter input : Proc(IntcodeComputer, Int64)
+  getter input_count : Int64
+  setter output : Proc(IntcodeComputer, Int64, Bool)
+  getter outputs : Array(Int64)
 
   def initialize( program_string : String, @data = ICData.new )
-    @program = program_string.split(',').map{|s|s.to_i32}
-    @memory = @program.dup
-    @pointer = 0
-    @halt = false
+    @program = program_string.split(',').map{|s|s.to_i64}
+    @memory = Array(Int64).new(100000, 0)
+    @program.dup.each.with_index do |v,i|
+      @memory[i] = v
+    end
+
     @debug = false
-    @input = ->(ic : IntcodeComputer) { 0 }
+
+    @pointer = 0
+    @relative_base = 0
     @input_count = 0
-    @output = ->(ic : IntcodeComputer, o : Int32) { false }
-    @outputs = [] of Int32
+    @halt = false
+
+    @input = ->(ic : IntcodeComputer) { Int64.new(0) }
+    @output = ->(ic : IntcodeComputer, o : Int64) { false }
+    @outputs = [] of Int64
+  end
+
+  def reset
+    @relative_base = 0
+    @pointer = 0
+    @input_count = 0
+    @halt = false
   end
 
   #debug "#{inst}|ADD/#{modes}<#{p}>: #{vals[0]}[#{memory[p1]}]<#{p1}> + #{vals[1]}[#{memory[p2]}]<#{p2}> => #{memory[a]}[#{a}]<#{p3}>"
 
   def op_add(mode_string)
-    vals = get_values( mode_string, 3 )
-    write_address = memory[pointer+3]
-    memory[ write_address ] = vals[0] + vals[1]
-    @pointer += 4
+    vals = get_values( mode_string, 3, 2 )
+    write vals[2], vals[0] + vals[1]
+    set_pointer pointer + 4
   end
 
   def op_multiply(mode_string)
-    vals = get_values( mode_string, 3 )
-    write_address = memory[pointer+3]
-    memory[ write_address ] = vals[0] * vals[1]
-    @pointer += 4
+    vals = get_values( mode_string, 3, 2 )
+    write vals[2], vals[0] * vals[1]
+    set_pointer pointer + 4
   end
   
   def op_store(mode_string)
-    #vals = get_values( mode_string, 1 )
-    write_address = memory[pointer+1]
-    memory[ write_address ] = input
-    @pointer += 2
+    vals = get_values( mode_string, 1, 0 )
+    write vals[0], input
+    set_pointer pointer + 2
   end
 
   def op_output(mode_string)
     vals = get_values( mode_string, 1 )
-    @pointer += 2
-    output vals[0]
+    set_pointer pointer + 2
+    output vals[0].to_i64
   end
 
   def op_jump_if_true(mode_string)
     vals = get_values( mode_string, 2 )
-    @pointer = vals[0].zero? ? pointer + 3 : vals[1]
+    set_pointer vals[0].zero? ? pointer + 3 : vals[1]
   end
 
   def op_jump_if_false(mode_string)
     vals = get_values( mode_string, 2 )
-    @pointer = vals[0].zero? ? vals[1] : @pointer + 3
+    set_pointer vals[0].zero? ? vals[1] : pointer + 3
   end
 
   def op_less_than(mode_string)
-    vals = get_values( mode_string, 3 )
-    write_address = memory[pointer+3]
-    memory[ write_address ] = vals[0] < vals[1] ? 1 : 0
-    @pointer += 4
+    vals = get_values( mode_string, 3, 2 )
+    write vals[2], vals[0] < vals[1] ? 1 : 0
+    set_pointer pointer + 4
   end
 
   def op_equals(mode_string)
-    vals = get_values( mode_string, 3 )
-    write_address = memory[pointer+3]
-    memory[ write_address ] = vals[0] == vals[1] ? 1 : 0
-    @pointer += 4
+    vals = get_values( mode_string, 3, 2 )
+    write vals[2], vals[0] == vals[1] ? 1 : 0
+    set_pointer pointer + 4
   end
 
-  def reset
-    @pointer = 0
-    @halt = false
+  def op_relative_base_offset(mode_string)
+    vals = get_values( mode_string, 1 )
+    self.relative_base = relative_base + vals[0]
+    set_pointer pointer + 2
   end
-   
+
   def run
     until halt
       inst = memory[pointer].to_s
@@ -95,29 +106,48 @@ class IntcodeComputer
       when 6 then op_jump_if_false(mode_string)
       when 7 then op_less_than(mode_string)
       when 8 then op_equals(mode_string)
+      when 9 then op_relative_base_offset(mode_string)
       when 99
-        @halt = true
-        @pointer += 1
+        self.halt = true
+        set_pointer pointer + 1
       end
     end
     true
   end
 
-  private def get_values(mode_string : String, num_parameters : Int8)
-    parameters = num_parameters.times.reduce([] of Int32) do |arr, i|
+  private def get_values(mode_string : String, num_params : Int8, address_param : Int8 = -1)
+    parameters = num_params.times.reduce([] of Int64) do |arr, i|
       arr.push( memory[pointer + i + 1] )
       arr
     end
-    modes = mode_string.reverse.ljust( num_parameters, '0' )
+    modes = mode_string.reverse.ljust( num_params, '0' )
     values = modes.chars.map_with_index do |mode, i|
       case mode
       when '0' # position
-        memory[ parameters[i] ]
+        if address_param == i
+          parameters[i]
+        else
+          memory[ parameters[i] ]
+        end
       when '1' # immediate
         parameters[i]
+      when '2' # relative
+        if address_param == i
+          parameters[i] + relative_base
+        else
+          memory[ parameters[i] + relative_base ]
+        end
       end || 0
     end
     values
+  end
+
+  private def write(address : Int32|Int64, value : Int32|Int64)
+    memory[address] = value.to_i64
+  end
+
+  private def set_pointer(value : Int32|Int64)
+    self.pointer = value.to_i64
   end
 
   private def input
@@ -125,7 +155,7 @@ class IntcodeComputer
     @input.call(self)
   end
 
-  private def output(value : Int32)
+  private def output(value : Int64)
     @outputs << value
     @output.call(self, value)
   end

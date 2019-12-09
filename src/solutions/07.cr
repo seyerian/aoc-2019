@@ -12,21 +12,23 @@ class Aoc2019::Seven < Aoc2019::Solution
 
     amps.each do |amp|
       amp.input = ->(ic : IntcodeComputer) {
-        if ic.input_count == 1
-          ps = ic.data[:ps]
-          ps.is_a?(Int32) ? ps : 0
-        elsif ic.input_count == 2 && ic == a
-          0
-        else
-          feeder = ic.data[:feeder]
-          if feeder.is_a?(IntcodeComputer)
-            feeder.outputs.last || 0
-          else
+        val = 
+          if ic.input_count == 1
+            ps = ic.data[:ps]
+            ps.is_a?(Int32) ? ps : 0
+          elsif ic.input_count == 2 && ic == a
             0
+          else
+            feeder = ic.data[:feeder]
+            if feeder.is_a?(IntcodeComputer)
+              feeder.outputs.last || 0
+            else
+              0
+            end
           end
-        end
+        val.to_i64
       }
-      amp.output = ->(ic : IntcodeComputer, o : Int32) {
+      amp.output = ->(ic : IntcodeComputer, o : Int64) {
         to_feed = amps.find{|amp|amp.data[:feeder] == ic}
         if !to_feed.nil?
           to_feed.run 
