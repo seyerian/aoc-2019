@@ -115,7 +115,9 @@ class IntcodeComputer
     true
   end
 
-  private def get_values(mode_string : String, num_params : Int8, address_param : Int8 = -1)
+  # if write_address_param_index is an index of a param, the method will return the address
+  # rather than the value at the address. #write obviously needs the address and not the value.
+  private def get_values(mode_string : String, num_params : Int8, write_address_param_index : Int8 = -1)
     parameters = num_params.times.reduce([] of Int64) do |arr, i|
       arr.push( memory[pointer + i + 1] )
       arr
@@ -124,7 +126,7 @@ class IntcodeComputer
     values = modes.chars.map_with_index do |mode, i|
       case mode
       when '0' # position
-        if address_param == i
+        if write_address_param_index == i
           parameters[i]
         else
           memory[ parameters[i] ]
@@ -132,7 +134,7 @@ class IntcodeComputer
       when '1' # immediate
         parameters[i]
       when '2' # relative
-        if address_param == i
+        if write_address_param_index == i
           parameters[i] + relative_base
         else
           memory[ parameters[i] + relative_base ]
