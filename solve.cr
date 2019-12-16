@@ -1,3 +1,3 @@
 require "./src/Aoc2019"
 
-puts Aoc2019::Fourteen.part2
+puts Aoc2019::Fifteen.part1
