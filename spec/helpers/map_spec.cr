@@ -4,6 +4,7 @@ describe Map do
   describe "#find_path" do
     it "returns the shortest path between two points" do
       map = Map.new({Int8.new(0) => '#', Int8.new(1) => '.'})
+      map.set_distances({Int8.new(0) => Map::UNREACHABLE, Int8.new(1) => 1})
       map.import(
       <<-MAP
       #######
