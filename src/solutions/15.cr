@@ -68,31 +68,7 @@ class Aoc2019::Fifteen < Aoc2019::Solution
       path = @map.find_path(@pos[:x], @pos[:y], consider_unexplored: true) do |node|
         @map.get(node.x, node.y).nil? # find a space not explored
       end
-      if path.nil?
-        path_to_os = @map.find_path(0,0) do |node|
-          node.x == @os_pos[:x] && node.y == @os_pos[:y]
-        end
-        if !path_to_os.nil?
-          puts "===PART 1=== (246)"
-          puts path_to_os.size - 1
-          puts "===PART 2=== (376)"
-          distances_to_open_locs = [] of Int32
-          @map.all_y.min.to(@map.all_y.max) do |y|
-            @map.all_x.min.to(@map.all_x.max) do |x|
-              if @map.get(x,y)==Tile::Floor.value
-                path = @map.find_path(@os_pos[:x], @os_pos[:y]) do |node|
-                  node.x == x && node.y == y
-                end
-                if !path.nil?
-                  distances_to_open_locs << path.size - 1
-                end
-              end
-            end
-          end
-          puts distances_to_open_locs.sort.last
-          exit
-        end
-      end
+      finish if path.nil?
       return random_direction("path nil") if path.nil?
       first = path[1]
       return random_direction("path empty") if first.nil?
@@ -129,6 +105,35 @@ class Aoc2019::Fifteen < Aoc2019::Solution
     def run
       @computer.run
     end
+
+    # found all unexplored spaces. find the shortest path to the oxygen system,
+    # and then calculate the time for oxygen to fill the room.
+    def finish
+      path_to_os = @map.find_path(0,0) do |node|
+        node.x == @os_pos[:x] && node.y == @os_pos[:y]
+      end
+      if !path_to_os.nil?
+        puts "===PART 1=== (246)"
+        puts path_to_os.size - 1
+        puts "===PART 2=== (376)"
+        distances_to_open_locs = [] of Int32
+        @map.all_y.min.to(@map.all_y.max) do |y|
+          @map.all_x.min.to(@map.all_x.max) do |x|
+            if @map.get(x,y)==Tile::Floor.value
+              path = @map.find_path(@os_pos[:x], @os_pos[:y]) do |node|
+                node.x == x && node.y == y
+              end
+              if !path.nil?
+                distances_to_open_locs << path.size - 1
+              end
+            end
+          end
+        end
+        puts distances_to_open_locs.sort.last
+        exit
+      end
+    end
+
   end
 
   def self.part1
