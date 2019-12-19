@@ -64,7 +64,7 @@ class Aoc2019::Fourteen < Aoc2019::Solution
     end
 
     def get_ore(need : Int32)
-      puts ore_used
+      #puts ore_used
       #log "--- need #{need} ore"
       limit = @ore_limit
       would_use = ore_used + need

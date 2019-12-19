@@ -54,7 +54,7 @@ class Aoc2019::Fifteen < Aoc2019::Solution
           @pos = a_pos.dup
           @os_pos = a_pos.dup
         end
-        #@map.draw @pos[:x], @pos[:y], 'D'
+        @map.draw @pos[:x], @pos[:y], 'D'
         true
       }
     end

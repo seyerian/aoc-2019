@@ -25,6 +25,45 @@ class Map
     end
   end
 
+  def count(tile : Int8|Char)
+    tile = @tiles.key_for(tile) if tile.is_a? Char
+    count = 0
+    all_y.min.to(all_y.max) do |y|
+      all_x.min.to(all_x.max) do |x|
+        count += 1 if get(x, y) == tile
+      end
+    end
+    count
+  end
+
+  def neighbors(x : Int32, y : Int32)
+    [
+      {x: 0, y: -1},
+      {x: 0, y: 1},
+      {x: -1, y: 0},
+      {x: 1, y: 0}
+    ].map do |coords|
+      tile = get( x + coords[:x], y + coords[:y] )
+      next if tile.nil?
+      {
+        x: x + coords[:x],
+        y: y + coords[:y],
+        tile: tile,
+        char: @tiles[tile]
+      }
+    end.compact
+  end
+
+  def find(tile : Int8|Char)
+    tile = @tiles.key_for(tile) if tile.is_a? Char
+    all_y.min.to(all_y.max) do |y|
+      all_x.min.to(all_x.max) do |x|
+        return {x: x, y: y} if get(x, y) == tile
+      end
+    end
+    return {x: -1, y: -1}
+  end
+
   def set(x : Int32, y : Int32, tile : Int8|Char|Nil)
     tile = @tiles.key_for(tile) if tile.is_a? Char
     return false if tile.nil?
@@ -133,9 +172,9 @@ class Map
 
   # TODO remove my x/y/char. just a hacky way to show where the droid is.
   # instead implement as another map layer of objects/actors.
-  def draw(my_x : Int32, my_y : Int32, my_char = '@')
+  def draw(my_x : Int32 = -1, my_y : Int32 = -1, my_char = '@')
     `clear`
-    #puts "------------------"
+    puts "------------------"
     all_y.min.to(all_y.max) do |y|
       all_x.min.to(all_x.max) do |x|
         if x == my_x && y == my_y
@@ -152,6 +191,14 @@ class Map
       puts
     end
     puts
-    sleep 0.5
+    sleep 0.05
+  end
+
+  def each
+    all_y.min.to(all_y.max) do |y|
+      all_x.min.to(all_x.max) do |x|
+        yield x, y, get(x, y)
+      end
+    end
   end
 end

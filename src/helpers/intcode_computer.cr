@@ -14,28 +14,33 @@ class IntcodeComputer
 
   def initialize( program_string : String, @data = ICData.new )
     @program = program_string.split(',').map{|s|s.to_i64}
+
     @memory = Array(Int64).new(100000, 0)
     @program.dup.each.with_index do |v,i|
       @memory[i] = v
     end
+    @pointer = 0
+    @relative_base = 0
+    @halt = false
+    @input_count = 0
+    @outputs = [] of Int64
 
     @debug = false
 
-    @pointer = 0
-    @relative_base = 0
-    @input_count = 0
-    @halt = false
-
     @input = ->(ic : IntcodeComputer) { Int64.new(0) }
     @output = ->(ic : IntcodeComputer, o : Int64) { false }
-    @outputs = [] of Int64
   end
 
   def reset
+    @memory = Array(Int64).new(100000, 0)
+    @program.dup.each.with_index do |v,i|
+      @memory[i] = v
+    end
     @relative_base = 0
     @pointer = 0
-    @input_count = 0
     @halt = false
+    @input_count = 0
+    @outputs = [] of Int64
   end
 
   #debug "#{inst}|ADD/#{modes}<#{p}>: #{vals[0]}[#{memory[p1]}]<#{p1}> + #{vals[1]}[#{memory[p2]}]<#{p2}> => #{memory[a]}[#{a}]<#{p3}>"
