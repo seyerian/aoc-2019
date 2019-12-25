@@ -2,9 +2,21 @@ class Map
 
   UNREACHABLE = Int32::MAX
 
+  def initialize(tiles : Array(Char))
+    tiles_h = Hash(Int8, Char).new
+    tiles.each.with_index do |tile, i|
+      tiles_h[i.to_i8] = tile
+    end
+    initialize tiles_h
+  end
+
   def initialize(@tiles : Hash(Int8, Char))
     @map = Hash(Int32, Hash(Int32, Int8)).new
     @distances = Hash(Int8, Int32).new
+  end
+
+  def set_distance(tile : Char, distance : Int32)
+    @distances[@tiles.key_for(tile)] = distance
   end
 
   def set_distances(distances : Hash(Int8, Int32))
@@ -58,10 +70,12 @@ class Map
     tile = @tiles.key_for(tile) if tile.is_a? Char
     all_y.min.to(all_y.max) do |y|
       all_x.min.to(all_x.max) do |x|
-        return {x: x, y: y} if get(x, y) == tile
+        if get(x, y) == tile
+          return {x: x, y: y} 
+        end
       end
     end
-    return {x: -1, y: -1}
+    nil
   end
 
   def set(x : Int32, y : Int32, tile : Int8|Char|Nil)

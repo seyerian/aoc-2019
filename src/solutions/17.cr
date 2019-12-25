@@ -88,6 +88,7 @@ class Aoc2019::Seventeen < Aoc2019::Solution
       x += 1
     end
     pos = map.find('^')
+    return if pos.nil?
     scaffold_count = map.count('#')
     visited = Array(NamedTuple(x: Int32, y: Int32)).new
     moves = Array(Char).new
