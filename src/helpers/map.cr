@@ -249,7 +249,7 @@ class Map
       puts
     end
     puts
-    sleep 0.05
+    #sleep 0.05
   end
 
   def each_char
