@@ -53,6 +53,7 @@ class Aoc2019::Eighteen < Aoc2019::Solution
       @pos = {x: 0_i16, y: 0_i16}
       @key_paths = Hash(Char|Nil, Hash(Char, Int16)).new
       @key_path_blockers = Hash(Char|Nil, Hash(Char, Array(Char))).new
+      @cache = Hash(Char|Nil, Hash(String, Int16)).new
       setup
     end
 
@@ -111,7 +112,12 @@ class Aoc2019::Eighteen < Aoc2019::Solution
 
       fill_dead_ends_and_trim_map
 
+      #@map.draw(pos[:x], pos[:y], '@')
+
+      key_chars = ('a'..'z').to_a 
       door_chars = ('A'..'Z').to_a 
+
+      puts "cache key paths and blockers"
 
       @key_paths[nil] = Hash(Char, Int16).new
       @key_path_blockers[nil] = Hash(Char, Array(Char)).new
@@ -122,8 +128,13 @@ class Aoc2019::Eighteen < Aoc2019::Solution
         end
         next if path.nil?
         @key_paths[nil][key.char] = path.size.to_i16 - 1
+        path.shift
+        path.pop
         path.each do |node|
           char = @map.get_char(node.x, node.y)
+          if key_chars.includes?(char)
+            @key_path_blockers[nil][key.char] << char
+          end
           if door_chars.includes?(char)
             @key_path_blockers[nil][key.char] << char
           end
@@ -140,29 +151,76 @@ class Aoc2019::Eighteen < Aoc2019::Solution
           end
           next if path.nil?
           @key_paths[key.char][key2.char] = path.size.to_i16 - 1
+          path.shift
+          path.pop
           path.each do |node|
             char = @map.get_char(node.x, node.y)
+            if key_chars.includes?(char)
+              @key_path_blockers[key.char][key2.char] << char
+            end
             if door_chars.includes?(char)
               @key_path_blockers[key.char][key2.char] << char
             end
           end
         end
       end
+
+      #puts @key_paths.inspect
+      #puts @key_path_blockers.inspect
     end
 
-    def solve
+    def recursive_solve
+      _recursive_solve(nil, [] of Char)
+    end
+
+    def _recursive_solve(last_key : Char|Nil, bag : Array(Char))
+      cache = @cache
+      bag_keys = bag.sort.join
+      if cache.has_key?(last_key)
+        if cache[last_key].has_key?(bag_keys)
+          return cache[last_key][bag_keys]
+        end
+      end
+
+      available_keys = Array(Char).new
+      @key_path_blockers[@last_key].each do |key, path_blockers|
+        next if bag.includes?(key)
+        if path_blockers.-(bag.map(&.upcase)).-(bag).empty?
+          available_keys << key
+        end
+      end
+      val =
+        if available_keys.size == 0
+          0_i16
+        else
+          available_keys.map { |key|
+            dist = @key_paths[last_key][key]
+            dist + _recursive_solve(
+              key, bag + [key]
+            )
+          }.min
+        end
+      @cache[last_key] = Hash(String, Int16).new if !@cache.has_key?(last_key)
+      @cache[last_key][bag_keys] = val
+      val
+    end
+
+    def queue_solve
       best_steps = UInt32.new(1000000000)
       best_order = ""
       states = Array(State).new
       state = State.new
       states << state
       i = 0_u64
+      paths = Array(String).new
       until states.empty?
         i += 1
-        puts "#{i} iterations, #{states.size} states queued"
-        states.sort_by!{|s|s.steps}.reverse!
+        puts "#{i} iterations, #{states.size} states queued, #{paths.size} paths"
+        #states.sort_by!{|s|s.steps}.reverse!
         if state = states.shift
           if state.done
+            puts "DONE"
+            paths << state.order
             if state.steps < best_steps
               best_steps = state.steps
               best_order = state.order
@@ -175,52 +233,57 @@ class Aoc2019::Eighteen < Aoc2019::Solution
       best_steps
     end
 
-    def solve_state(state : State, states : Array(State), best_steps : UInt32)
-      if state.steps > best_steps
-        #puts "not good, returning early"
-        state.done = true
+    def queue_solve_state(state : State, states : Array(State), best_steps : UInt32)
+      if state.steps >= best_steps
+        puts "not good, returning early"
         return
       end
       #sleep 1
       #puts "#solve #{state}"
       if key = state.next_key
+        puts "#{state.order}->#{key}"
         #puts "- seeking key #{key}"
         state.steps += @key_paths[state.last_key][key]
+        if state.steps >= best_steps
+          puts "not good, returning early"
+          return
+        end
         state.keys << key
         state.last_key = key
         state.next_key = nil
-        states << state
-      else
-        #puts "#find_available_keys #{object_id}"
-        available_keys = Array(Char).new
-        @key_path_blockers[@last_key].each do |key2, path_blockers|
-          next if state.keys.includes?(key2)
-          if path_blockers.-(state.doors_unlocked).empty?
-            available_keys << key2
-          end
-        end
+        states.unshift state
+        return
+      end
 
-        if available_keys.size == 0
-          #puts "- done"
-          state.done = true
-          states << state
-        else
-          state.next_key = available_keys.shift
-          states << state
-          available_keys.each do |key|
-            clone = state.clone
-            #puts "!!! CLONING solver for available key #{key} - #{clone}"
-            clone.next_key = key
-            states << clone
-          end
+      #puts "#find_available_keys #{object_id}"
+      available_keys = Array(Char).new
+      @key_path_blockers[@last_key].each do |key2, path_blockers|
+        next if state.keys.includes?(key2)
+        if path_blockers.-(state.doors_unlocked).-(state.keys).empty?
+          available_keys << key2
         end
+      end
+
+      if available_keys.size == 0
+        puts "- done"
+        state.done = true
+        states.unshift state
+      else
+        state.next_key = available_keys.shift
+        available_keys.each do |key|
+          clone = state.clone
+          #puts "!!! CLONING solver for available key #{key} - #{clone}"
+          clone.next_key = key
+          states.unshift clone
+        end
+        states.unshift state
       end
     end
 
   end # KeySolver
 
   def self.solve(map : String)
-    Aoc2019::Eighteen::KeySolver.new(map).solve
+    Aoc2019::Eighteen::KeySolver.new(map).recursive_solve
   end
 
   def self.part1
