@@ -115,7 +115,11 @@ class Map
   end
 
   def get_char(x : Int16, y : Int16)
-    @tiles[get(x,y)]
+    if tile = get(x,y)
+      @tiles[tile]
+    else
+      nil
+    end
   end
 
   def get(x : Int16, y : Int16)

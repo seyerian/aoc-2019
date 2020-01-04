@@ -21,64 +21,73 @@ class Aoc2019::Nineteen < Aoc2019::Solution
   end
 
   class TractorBeamChecker
-    getter checks
+    getter map
     def initialize
-      @checks = Hash(NamedTuple(x: Int32, y: Int32), Bool).new
+      @map = Map.new(['.','#'])
       @computer = IntcodeComputer.new File.read("inputs/19")
-    end
-    
-    def first_square(size : Int32)
-      last_width size
+      @squares = Array(NamedTuple(x: Int16, y: Int16)).new
     end
 
-    def last_width(size : Int32)
-      found_bound = false
-      found = false
-      y = 1
-      until found_bound && found
-        puts "y: #{y}"
-        beam_length = 0
-        1.to y do |x|
-          if check x, y
-            beam_length += 1
-          else break if beam_length > 0
+    def find_square(desired_size : Int32)
+      y = 0_i16
+      size = 1
+      last_x = 0_i16
+      loop do
+        x = (last_x-5..y*3).find{|x| beam?(x,y)}
+        unless x.nil?
+          last_x = x
+          until !square_fits?(x, y-size+1, size)
+            return {x: x, y: y-size+1} if size == desired_size
+            size += 1
           end
         end
-        puts "beam length: #{beam_length}"
-        if found_bound
-          if beam_length == size
-            found = true
-          else
-            y -= 1
-          end
-        else
-          if beam_length > size
-            found_bound = true
-          else
-            y += 50
-          end
-        end
+        size -= 1 if size > 1
+        y += 1
       end
-      y
     end
 
-    def check(x : Int32, y : Int32)
+    def square_fits?(x : Int16, y : Int16, size : Int32)
+      if beam?(x+size-1,y) && beam?(x, y+size-1)
+        @squares << {x: x, y: y}
+        true
+      else
+        false
+      end
+    end
+
+    def beam?(x : Int16, y : Int16)
+      get(x,y)=='#'
+    end
+
+    def get(x : Int16, y : Int16)
+      if char = @map.get_char(x, y)
+        return char
+      end
       digits = [x,y]
       @computer.input = ->(ic : IntcodeComputer) {
         digits.shift.to_i64
       }
       @computer.output = ->(ic : IntcodeComputer, o : Int64) {
-        @checks[{x: x, y: y}] = (o==1)
+        @map.set x, y, (o==1 ? '#' : '.')
       }
       @computer.reset
       @computer.run
-      @checks[{x: x, y: y}]
+      @map.get_char(x, y)
     end
   end
 
   def self.part2
     checker = TractorBeamChecker.new
-    checker.last_width 100
+    coords = checker.find_square 100
+    coords[:x].to_i32 * 10000 + coords[:y].to_i32
   end
+
+  # 250020
+  def self.part2_test
+    checker = TractorBeamChecker.new
+    checker.map.import File.read("inputs/test/19-2")
+    coords = checker.find_square 10
+    coords[:x].to_i32 * 10000 + coords[:y].to_i32
+  end 
 
 end
