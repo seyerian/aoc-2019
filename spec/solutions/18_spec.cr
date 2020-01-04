@@ -77,4 +77,51 @@ describe Aoc2019::Eighteen do
       Aoc2019::Eighteen.solve(map).should eq 41
     end
   end
+
+  describe "part 2" do
+    describe "test 1" do
+      it "equals 8" do
+        map = <<-MAP
+        #######
+        #a.#Cd#
+        ##@#@##
+        #######
+        ##@#@##
+        #cB#Ab#
+        #######
+        MAP
+        Aoc2019::Eighteen.solve(map).should eq 8
+      end
+    end
+    describe "test 2" do
+      it "equals 32" do
+        map = <<-MAP
+        #############
+        #DcBa.#.GhKl#
+        #.###@#@#I###
+        #e#d#####j#k#
+        ###C#@#@###J#
+        #fEbA.#.FgHi#
+        #############
+        MAP
+        Aoc2019::Eighteen.solve(map).should eq 32
+      end
+    end
+    describe "test 3" do
+      it "equals 72" do
+        map = <<-MAP
+        #############
+        #g#f.D#..h#l#
+        #F###e#E###.#
+        #dCba@#@BcIJ#
+        #############
+        #nK.L@#@G...#
+        #M###N#H###.#
+        #o#m..#i#jk.#
+        #############
+        MAP
+        Aoc2019::Eighteen.solve(map).should eq 72
+      end
+    end
+  end
 end

@@ -1,11 +1,15 @@
 class Aoc2019::Eighteen < Aoc2019::Solution
 
+  #alias Position = NamedTuple(x: Int16, y: Int16)
+
   abstract struct Item
     def_clone
     getter x, y, char
     def initialize(@x : Int16, @y : Int16, @char : Char)
     end
   end
+
+  struct Robot < Item; end
 
   struct Key < Item; end
 
@@ -50,16 +54,18 @@ class Aoc2019::Eighteen < Aoc2019::Solution
       @map.import map_string
       @keys = Array(Key).new
       @doors = Array(Door).new
-      @pos = {x: 0_i16, y: 0_i16}
-      @key_paths = Hash(Char|Nil, Hash(Char, Int16)).new
-      @key_path_blockers = Hash(Char|Nil, Hash(Char, Array(Char))).new
-      @cache = Hash(Char|Nil, Hash(String, Int16)).new
+      @key_paths = Hash(Char, Hash(Char, Int16)).new
+      @key_path_blockers = Hash(Char, Hash(Char, Array(Char))).new
+      @cache = Hash(Array(Char), Hash(String, Int16)).new
+      @robots = Array(Robot).new
       setup
     end
 
     def fill_dead_ends_and_trim_map
       trim_map
-      fill_dead_ends
+      @robots.each do |robot|
+        fill_dead_ends robot
+      end
     end
 
     def trim_map
@@ -68,10 +74,10 @@ class Aoc2019::Eighteen < Aoc2019::Solution
       end
     end
 
-    def fill_dead_ends
+    def fill_dead_ends(robot : Robot)
       #map.draw(pos[:x], pos[:y], '@')
-      puts "#fill_dead_ends"
-      path = @map.find_path(@pos[:x], @pos[:y]) do |node|
+      #puts "#fill_dead_ends"
+      path = @map.find_path(robot.x, robot.y) do |node|
         floor = @map.get_char(node.x, node.y) == '.'
         dead_end = @map.neighbors(node.x, node.y).size == 1
         floor && dead_end
@@ -85,11 +91,11 @@ class Aoc2019::Eighteen < Aoc2019::Solution
           @map.unset(node.x, node.y)
         end
       end
-      fill_dead_ends
+      fill_dead_ends robot
     end
 
     def setup
-      # find self, keys, and doors on map
+      # find robots, keys, and doors on map
       @map.each do |x, y, tile|
         next if tile.nil?
         if ('a'..'z').map(&.ord).includes?(tile)
@@ -97,7 +103,7 @@ class Aoc2019::Eighteen < Aoc2019::Solution
         elsif ('A'..'Z').map(&.ord).includes?(tile)
           @doors << Door.new(x, y, tile.chr)
         elsif tile == '@'.ord
-          @pos = {x: x, y: y}
+          @robots << Robot.new(x, y, (48 + @robots.size).chr)
           @map.set(x, y, '.')
         end
       end
@@ -112,31 +118,35 @@ class Aoc2019::Eighteen < Aoc2019::Solution
 
       fill_dead_ends_and_trim_map
 
-      #@map.draw(pos[:x], pos[:y], '@')
+      #if rob = @robots.first
+      #  @map.draw(rob.x, rob.y, rob.char)
+      #end
 
       key_chars = ('a'..'z').to_a 
       door_chars = ('A'..'Z').to_a 
 
-      puts "cache key paths and blockers"
+      #puts "cache key paths and blockers"
 
-      @key_paths[nil] = Hash(Char, Int16).new
-      @key_path_blockers[nil] = Hash(Char, Array(Char)).new
-      @keys.each do |key|
-        @key_path_blockers[nil][key.char] = Array(Char).new
-        path = @map.find_path(@pos[:x], @pos[:y]) do |node|
-          @map.get_char(node.x, node.y) == key.char
-        end
-        next if path.nil?
-        @key_paths[nil][key.char] = path.size.to_i16 - 1
-        path.shift
-        path.pop
-        path.each do |node|
-          char = @map.get_char(node.x, node.y)
-          if key_chars.includes?(char)
-            @key_path_blockers[nil][key.char] << char
+      @robots.each do |robot|
+        @key_paths[robot.char] = Hash(Char, Int16).new
+        @key_path_blockers[robot.char] = Hash(Char, Array(Char)).new
+        @keys.each do |key|
+          @key_path_blockers[robot.char][key.char] = Array(Char).new
+          path = @map.find_path(robot.x, robot.y) do |node|
+            @map.get_char(node.x, node.y) == key.char
           end
-          if door_chars.includes?(char)
-            @key_path_blockers[nil][key.char] << char
+          next if path.nil?
+          @key_paths[robot.char][key.char] = path.size.to_i16 - 1
+          path.shift
+          path.pop
+          path.each do |node|
+            char = @map.get_char(node.x, node.y)
+            if key_chars.includes?(char)
+              @key_path_blockers[robot.char][key.char] << char
+            end
+            if door_chars.includes?(char)
+              @key_path_blockers[robot.char][key.char] << char
+            end
           end
         end
       end
@@ -170,38 +180,43 @@ class Aoc2019::Eighteen < Aoc2019::Solution
     end
 
     def recursive_solve
-      _recursive_solve(nil, [] of Char)
+      _recursive_solve(@robots.map(&.char), [] of Char)
     end
 
-    def _recursive_solve(last_key : Char|Nil, bag : Array(Char))
+    private def _recursive_solve(currents : Array(Char), bag : Array(Char))
+      currents.sort!
       cache = @cache
       bag_keys = bag.sort.join
-      if cache.has_key?(last_key)
-        if cache[last_key].has_key?(bag_keys)
-          return cache[last_key][bag_keys]
+      if cache.has_key?(currents)
+        if cache[currents].has_key?(bag_keys)
+          return cache[currents][bag_keys]
         end
       end
 
-      available_keys = Array(Char).new
-      @key_path_blockers[@last_key].each do |key, path_blockers|
-        next if bag.includes?(key)
-        if path_blockers.-(bag.map(&.upcase)).-(bag).empty?
-          available_keys << key
+      available_keys = Hash(Char, Char).new
+      currents.each do |current|
+        @key_path_blockers[current].each do |key, path_blockers|
+          next if bag.includes?(key)
+          next if !@key_paths[current].has_key? key
+          if path_blockers.-(bag.map(&.upcase)).-(bag).empty?
+            available_keys[key] = current
+          end
         end
       end
       val =
         if available_keys.size == 0
           0_i16
         else
-          available_keys.map { |key|
-            dist = @key_paths[last_key][key]
-            dist + _recursive_solve(
-              key, bag + [key]
-            )
+          available_keys.map { |key, char|
+            new_currents = currents.clone
+            new_currents.delete(char)
+            new_currents << key
+            dist = @key_paths[char][key]
+            dist + _recursive_solve( new_currents, bag + [key] )
           }.min
         end
-      @cache[last_key] = Hash(String, Int16).new if !@cache.has_key?(last_key)
-      @cache[last_key][bag_keys] = val
+      @cache[currents] = Hash(String, Int16).new if !@cache.has_key?(currents)
+      @cache[currents][bag_keys] = val
       val
     end
 
@@ -215,11 +230,11 @@ class Aoc2019::Eighteen < Aoc2019::Solution
       paths = Array(String).new
       until states.empty?
         i += 1
-        puts "#{i} iterations, #{states.size} states queued, #{paths.size} paths"
+        #puts "#{i} iterations, #{states.size} states queued, #{paths.size} paths"
         #states.sort_by!{|s|s.steps}.reverse!
         if state = states.shift
           if state.done
-            puts "DONE"
+            #puts "DONE"
             paths << state.order
             if state.steps < best_steps
               best_steps = state.steps
@@ -235,17 +250,17 @@ class Aoc2019::Eighteen < Aoc2019::Solution
 
     def queue_solve_state(state : State, states : Array(State), best_steps : UInt32)
       if state.steps >= best_steps
-        puts "not good, returning early"
+        #puts "not good, returning early"
         return
       end
       #sleep 1
       #puts "#solve #{state}"
       if key = state.next_key
-        puts "#{state.order}->#{key}"
+        #puts "#{state.order}->#{key}"
         #puts "- seeking key #{key}"
         state.steps += @key_paths[state.last_key][key]
         if state.steps >= best_steps
-          puts "not good, returning early"
+          #puts "not good, returning early"
           return
         end
         state.keys << key
@@ -265,7 +280,7 @@ class Aoc2019::Eighteen < Aoc2019::Solution
       end
 
       if available_keys.size == 0
-        puts "- done"
+        #puts "- done"
         state.done = true
         states.unshift state
       else
@@ -286,8 +301,14 @@ class Aoc2019::Eighteen < Aoc2019::Solution
     Aoc2019::Eighteen::KeySolver.new(map).recursive_solve
   end
 
+  # 5402
   def self.part1
     solve(File.read("inputs/18"))
+  end
+
+  # 2138
+  def self.part2
+    solve(File.read("inputs/18b"))
   end
 
 end

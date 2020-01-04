@@ -97,7 +97,7 @@ class Map
     nil
   end
 
-  def unset(x : Int32|Int16, y : Int32|Int16)
+  def unset(x : Int16, y : Int16)
     x = x.to_i16
     y = y.to_i16
     return if (x.nil? || y.nil?)

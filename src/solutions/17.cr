@@ -47,11 +47,11 @@ class Aoc2019::Seventeen < Aoc2019::Solution
       tiles[ascii.to_i8] = ascii.chr
     end
     map = Map.new(tiles)
-    x = y = 0
+    x = y = 0_i16
     outputs.each do |ascii|
       char = ascii.chr
       if char == '\n'
-        x = 0
+        x = 0_i16
         y += 1
         next
       end
@@ -76,11 +76,11 @@ class Aoc2019::Seventeen < Aoc2019::Solution
       tiles[ascii.to_i8] = ascii.chr
     end
     map = Map.new(tiles)
-    x = y = 0
+    x = y = 0_i16
     outputs.each do |ascii|
       char = ascii.chr
       if char == '\n'
-        x = 0
+        x = 0_i16
         y += 1
         next
       end
@@ -90,7 +90,7 @@ class Aoc2019::Seventeen < Aoc2019::Solution
     pos = map.find('^')
     return if pos.nil?
     scaffold_count = map.count('#')
-    visited = Array(NamedTuple(x: Int32, y: Int32)).new
+    visited = Array(NamedTuple(x: Int16, y: Int16)).new
     moves = Array(Char).new
     last_offset = {x: 0, y: 0}
     until visited.size == scaffold_count
