@@ -1,6 +1,13 @@
 class Map
   def_clone
+  alias Position = NamedTuple(x: Int16, y: Int16)
+  property? has_teleporters : Bool
+  getter teleporters
+  property teleport_mode : Symbol
+  property teleporter_label_tiles : Array(Char)
 
+  TELEPORTER_CHAR = '!'
+  UNKNOWN_CHAR = '?'
   UNREACHABLE = Int32::MAX
 
   def initialize(tiles : Array(Char))
@@ -12,9 +19,14 @@ class Map
   end
 
   def initialize(@tiles : Hash(Int8, Char))
+    @tiles[TELEPORTER_CHAR.ord.to_i8] = TELEPORTER_CHAR
     @map = Hash(Int16, Hash(Int16, Int8)).new
     @distances = Hash(Int8, Int32).new
     @heuristics = Hash(Int16, Hash(Int16, Array(Int8))).new
+    @teleporters = Hash(String, Array(Position)).new
+    @teleporter_label_tiles = Array(Char).new
+    @has_teleporters = false
+    @teleport_mode = :default
   end
 
   def add_heuristic(x : Int16, y : Int16, tile : Int8|Char|Nil)
@@ -51,7 +63,43 @@ class Map
   def import(map : String)
     map.split("\n").each.with_index do |line, y|
       line.chars.each.with_index do |tile, x|
+        next unless @tiles.values.includes?(tile)
         set x.to_i16, y.to_i16, tile
+      end
+    end
+    setup_teleporters if has_teleporters?
+  end
+
+  def setup_teleporters
+    each_char do |x, y, char|
+      next unless @teleporter_label_tiles.includes?(char)
+      unset x, y
+      down = get_char(x, y+1)
+      right = get_char(x+1, y)
+      if @teleporter_label_tiles.includes?(down)
+        unset x, y+1
+        label = [char, down].join
+        @teleporters[label] = Array(Position).new if !@teleporters.has_key?(label)
+        down2 = get_char(x, y+2)
+        if down2 == '.'
+          @teleporters[label] << {x: x, y: y+2}
+          set x, y+1, TELEPORTER_CHAR
+        else
+          @teleporters[label] << {x: x, y: y-1}
+          set x, y, TELEPORTER_CHAR
+        end
+      elsif @teleporter_label_tiles.includes?(right)
+        unset x+1, y
+        label = [char, right].join
+        @teleporters[label] = Array(Position).new if !@teleporters.has_key?(label)
+        right2 = get_char(x+2, y)
+        if right2 == '.'
+          @teleporters[label] << {x: x+2, y: y}
+          set x+1, y, TELEPORTER_CHAR
+        else
+          @teleporters[label] << {x: x-1, y: y}
+          set x, y, TELEPORTER_CHAR
+        end 
       end
     end
   end
@@ -118,7 +166,7 @@ class Map
     if tile = get(x,y)
       @tiles[tile]
     else
-      nil
+      UNKNOWN_CHAR
     end
   end
 
@@ -136,31 +184,88 @@ class Map
     property parent : (PathNode|Nil)
     property visited : Bool
     property distance : Int32
-    def initialize(@x : Int16, @y : Int16)
+    property level : Int8
+    def initialize(@x : Int16, @y : Int16, @level : Int8 = 0)
       @visited = false
       @distance = UNREACHABLE
     end
     def neighbor_of?(node : PathNode)
-      (@x-node.x).abs + (@y-node.y).abs < 2
+      (@x-node.x).abs + (@y-node.y).abs < 2 && level == node.level
     end
     def ==(other : PathNode)
-      x==other.x && y==other.y
+      x==other.x && y==other.y && level==other.level
+    end
+  end
+
+  def teleport_between?(node1 : PathNode, node2 : PathNode)
+    return false if !has_teleporters?
+    return false if node1.x==node2.x && node1.y==node2.y
+    linked = @teleporters.any? do |code, positions|
+      positions.includes?({x: node1.x, y: node1.y}) && positions.includes?({x: node2.x, y: node2.y})
+    end
+    return false unless linked
+    case teleport_mode
+    when :default
+      true
+    when :levels
+      middle_x = all_x.max / 2
+      middle_y = all_y.max / 2
+
+      node1_inner =
+        case
+        when get_char(node1.x + 1, node1.y)==TELEPORTER_CHAR && node1.x < middle_x then true
+        when get_char(node1.x - 1, node1.y)==TELEPORTER_CHAR && node1.x > middle_x then true
+        when get_char(node1.x, node1.y + 1)==TELEPORTER_CHAR && node1.y < middle_y then true
+        when get_char(node1.x, node1.y - 1)==TELEPORTER_CHAR && node1.y > middle_y then true
+        else false
+        end
+      node2_inner =
+        case
+        when get_char(node2.x + 1, node2.y)==TELEPORTER_CHAR && node2.x < middle_x then true
+        when get_char(node2.x - 1, node2.y)==TELEPORTER_CHAR && node2.x > middle_x then true
+        when get_char(node2.x, node2.y + 1)==TELEPORTER_CHAR && node2.y < middle_y then true
+        when get_char(node2.x, node2.y - 1)==TELEPORTER_CHAR && node2.y > middle_y then true
+        else false
+        end
+      
+      case
+      when node1_inner && !node2_inner
+        node1.level == node2.level - 1
+      when !node1_inner && node2_inner
+        node1.level == node2.level + 1
+      else
+        false
+      end
     end
   end
   
   # Dijkstra's algorithm.
   # expects a block with a PathNode arg to identify the target.
   # NOTE that the resulting path includes the start node.
-  def find_path(x : Int16, y : Int16, consider_unexplored = false,
+  def find_path(x : Int16, y : Int16, consider_unexplored = false, level = 0_i8,
                 heuristic_checker : Proc(PathNode, Bool)|Nil = nil )
     visited = Array(PathNode).new
     unvisited = Array(PathNode).new
-    all_y.min.to(all_y.max) do |y|
-      all_x.min.to(all_x.max) do |x|
-        unvisited << PathNode.new(x,y) unless get(x,y).nil?
+
+    levels_added = Array(Int8).new
+    add_level = ->(lvl : Int8) {
+      return if lvl > 30 # day 20 part 2 takes a long time without this
+      return false if levels_added.includes?(lvl)
+      all_y.min.to(all_y.max) do |y|
+        all_x.min.to(all_x.max) do |x|
+          unvisited << PathNode.new(x, y, lvl) unless get(x,y).nil?
+        end
       end
+      unvisited.sort_by! do |n|
+        [level.-(n.level).abs, x.-(n.x).abs, y.-(n.y).abs]
+      end
+      levels_added << lvl
+      true
+    }
+    add_level.call(level)
+    if teleport_mode == :levels
+      add_level.call(level + 1)
     end
-    unvisited.sort_by!{|n|[x.-(n.x).abs, y.-(n.y).abs]}
 
     # allows path to traverse undefined map tiles.
     if consider_unexplored
@@ -177,7 +282,9 @@ class Map
       unvisited.uniq!
     end
 
-    current = unvisited.find{|n|n.x==x && n.y==y}
+    current = unvisited.find do |n|
+      n.x==x && n.y==y && n.level == level
+    end
     return unless current
     current.distance = 0
 
@@ -185,7 +292,10 @@ class Map
     until found # main loop
       # get neighbors of current node, and update their distances if
       # the path through the current node is shorter than their existing distance.
-      neighbors = unvisited.select { |n| n.neighbor_of?(current) && n != current }
+      neighbors = unvisited.select do |n|
+        next false if n == current
+        n.neighbor_of?(current) || teleport_between?(current, n)
+      end
       neighbors.each do |neighbor|
         tile = get(neighbor.x, neighbor.y)
         if distance(tile) != UNREACHABLE
@@ -214,6 +324,11 @@ class Map
 
       return if closest.nil? || closest.distance == UNREACHABLE
       current = closest
+      if teleport_mode == :levels
+        unless levels_added.includes?(current.level + 1)
+          add_level.call(current.level + 1)
+        end
+      end
 
       # yield if block indicates that we found target
       found = true if yield(current)
@@ -245,7 +360,7 @@ class Map
         end
         if @map.has_key?(y) && @map[y].has_key?(x)
           tile = @map[y][x]
-          print @tiles.has_key?(tile) ? @tiles[tile] : '?'
+          print @tiles.has_key?(tile) ? @tiles[tile] : UNKNOWN_CHAR
           next
         end
         print ' '
@@ -270,4 +385,59 @@ class Map
       end
     end
   end
+
+  def trim
+    each_char do |x, y, char|
+      unset(x, y) if char=='#'
+    end
+  end
+
+  # assumes #trim has been run
+  def fill_dead_ends(x : Int16, y : Int16)
+    #map.draw(pos[:x], pos[:y], '@')
+    #puts "#fill_dead_ends"
+    fill_dead_ends_with_scan x, y
+  end
+
+  def fill_dead_ends_with_scan(x : Int16, y : Int16)
+    filled = true
+    while filled
+      filled = false
+      each_char do |x, y, char|
+        floor = char == '.'
+        next unless floor
+        dead_end = neighbors(x, y).size == 1
+        next unless dead_end
+        teleporter = @teleporters.values.flatten.includes?({x: x, y: y})
+        next unless !teleporter
+        unset(x, y)
+        filled = true
+      end
+    end
+  end
+
+  def fill_dead_ends_with_pathfinding(x : Int16, y : Int16)
+    path = find_path(x, y) do |node|
+      floor = get_char(node.x, node.y) == '.'
+      next unless floor
+      dead_end = neighbors(node.x, node.y).size == 1
+      next unless dead_end
+      teleporter = @teleporters.values.flatten.includes?({x: node.x, y: node.y})
+      next unless !teleporter
+      true
+    end
+    return if path.nil?
+    path.shift # current position
+    path.reverse.each do |node|
+      floor = get_char(node.x, node.y) == '.'
+      next unless floor
+      dead_end = neighbors(node.x, node.y).size == 1
+      next unless dead_end
+      teleporter = @teleporters.values.flatten.includes?({x: node.x, y: node.y})
+      next unless !teleporter
+      unset(node.x, node.y)
+    end
+    fill_dead_ends_with_pathfinding x, y
+  end
+
 end

@@ -62,36 +62,10 @@ class Aoc2019::Eighteen < Aoc2019::Solution
     end
 
     def fill_dead_ends_and_trim_map
-      trim_map
+      @map.trim
       @robots.each do |robot|
-        fill_dead_ends robot
+        @map.fill_dead_ends_with_pathfinding robot.x, robot.y
       end
-    end
-
-    def trim_map
-      @map.each_char do |x, y, char|
-        @map.unset(x, y) if char=='#'
-      end
-    end
-
-    def fill_dead_ends(robot : Robot)
-      #map.draw(pos[:x], pos[:y], '@')
-      #puts "#fill_dead_ends"
-      path = @map.find_path(robot.x, robot.y) do |node|
-        floor = @map.get_char(node.x, node.y) == '.'
-        dead_end = @map.neighbors(node.x, node.y).size == 1
-        floor && dead_end
-      end
-      return if path.nil?
-      path.shift # current position
-      path.reverse.each do |node|
-        floor = @map.get_char(node.x, node.y) == '.'
-        dead_end = @map.neighbors(node.x, node.y).size == 1
-        if floor && dead_end
-          @map.unset(node.x, node.y)
-        end
-      end
-      fill_dead_ends robot
     end
 
     def setup

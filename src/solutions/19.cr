@@ -29,9 +29,9 @@ class Aoc2019::Nineteen < Aoc2019::Solution
     end
 
     def find_square(desired_size : Int32)
-      y = 0_i16
+      y = 0
       size = 1
-      last_x = 0_i16
+      last_x = 0
       loop do
         x = (last_x-5..y*3).find{|x| beam?(x,y)}
         unless x.nil?
@@ -46,22 +46,22 @@ class Aoc2019::Nineteen < Aoc2019::Solution
       end
     end
 
-    def square_fits?(x : Int16, y : Int16, size : Int32)
+    def square_fits?(x : Int32, y : Int32, size : Int32)
       if beam?(x+size-1,y) && beam?(x, y+size-1)
-        @squares << {x: x, y: y}
+        @squares << {x: x.to_i16, y: y.to_i16}
         true
       else
         false
       end
     end
 
-    def beam?(x : Int16, y : Int16)
-      get(x,y)=='#'
+    def beam?(x : Int32, y : Int32)
+      get(x.to_i16,y.to_i16)=='#'
     end
 
     def get(x : Int16, y : Int16)
       if char = @map.get_char(x, y)
-        return char
+        return char if char != Map::UNKNOWN_CHAR
       end
       digits = [x,y]
       @computer.input = ->(ic : IntcodeComputer) {
