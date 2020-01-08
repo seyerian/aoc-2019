@@ -1,9 +1,11 @@
+# TODO break ICData up into separate hashes. Union types are difficult to work with when a specific types is needed.
 alias ICData = Hash( Symbol, String | Int32 | Int64 | IntcodeComputer )
 
 class IntcodeComputer
   @program : Array(Int64)
   property memory : Array(Int64)
   property data : ICData
+  property data_i64 : Hash(Symbol, Int64)
   private property pointer : Int64
   private property halt : Bool
   private property relative_base : Int32
@@ -11,8 +13,10 @@ class IntcodeComputer
   getter input_count : Int64
   setter output : Proc(IntcodeComputer, Int64, Bool)
   getter outputs : Array(Int64)
+  setter pre_hook : Proc(IntcodeComputer, Bool)
+  setter post_hook : Proc(IntcodeComputer, Bool)
 
-  def initialize( program_string : String, @data = ICData.new )
+  def initialize( program_string : String, @data = ICData.new, @data_i64 = Hash(Symbol, Int64).new )
     @program = program_string.split(',').map{|s|s.to_i64}
 
     @memory = Array(Int64).new(100000, 0)
@@ -29,6 +33,8 @@ class IntcodeComputer
 
     @input = ->(ic : IntcodeComputer) { Int64.new(0) }
     @output = ->(ic : IntcodeComputer, o : Int64) { false }
+    @pre_hook = ->(ic : IntcodeComputer) { false }
+    @post_hook = ->(ic : IntcodeComputer) { false }
   end
 
   def reset
@@ -99,6 +105,7 @@ class IntcodeComputer
 
   def run
     until halt
+      @pre_hook.call(self)
       inst = memory[pointer].to_s
       opcode = inst[ inst.size-2, 2 ].to_i
       mode_string = inst.rchop.rchop # opcode is 2 digits
@@ -116,6 +123,7 @@ class IntcodeComputer
         self.halt = true
         set_pointer pointer + 1
       end
+      @post_hook.call(self)
     end
     true
   end

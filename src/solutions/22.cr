@@ -6,7 +6,7 @@ class Aoc2019::TwentyTwo < Aoc2019::Solution
       @last_card_num = @card_count - 1
     end
 
-    def reverse_shuffle_offset(process : String, position : UInt64, times : Int64 = 1)
+    def reverse_shuffle_offset(process : String, position : Int64, times : Int64 = 1)
       pointer = position
       #puts pointer
       process_reversed = process.split('\n').reverse
@@ -29,35 +29,27 @@ class Aoc2019::TwentyTwo < Aoc2019::Solution
       pointer
     end
 
-    private def new_stack(pointer : UInt64)
-      @last_card_num.to_u64 - pointer
+    private def new_stack(pointer : Int64)
+      @last_card_num.to_i64 - pointer
     end
 
-    private def cut(n : Int16, pointer : UInt64)
+    private def cut(n : Int16, pointer : Int64)
       ptr = pointer.to_i64
-      if n > 0
-        ptr += n
-        if ptr > @last_card_num
-          ptr -= @card_count
-        end
-      else
-        ptr += n
-        if ptr < 0
-          ptr += @card_count
-        end
-      end
-      ptr.to_u64
+      ptr += n
+      ptr -= @card_count if ptr > @last_card_num
+      ptr += @card_count if ptr < 0
+      ptr.to_i64
     end
 
-    private def deal(n : Int16, pointer : UInt64)
+    private def deal(n : Int16, pointer : Int64)
       #offset = 0
       #until (pointer + offset) % n == 0
       #  offset += 1
       #end
       #(pointer + (offset * @card_count) ) // n
 
-      #i = 0_u64
-      #tmp = 0_u64
+      #i = 0_i64
+      #tmp = 0_i64
       #until tmp == pointer
       #  tmp += n
       #  tmp -= @card_count if tmp > @last_card_num
@@ -65,12 +57,12 @@ class Aoc2019::TwentyTwo < Aoc2019::Solution
       #end
       #i
 
-      offset = 0_u64
+      offset = 0_i64
       until (offset * @card_count + pointer) % n == 0
         offset += 1
       end
       x = ( pointer + @card_count * offset ) / n
-      x.to_u64
+      x.to_i64
     end
   end
 
