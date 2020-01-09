@@ -116,12 +116,13 @@ class Map
   end
 
   def neighbors(x : Int16, y : Int16)
-    [
+    neighboring_tiles = [
       {x: 0, y: -1},
       {x: 0, y: 1},
       {x: -1, y: 0},
       {x: 1, y: 0}
-    ].map do |coords|
+    ]
+    neighboring_tiles.map do |coords|
       tile = get( x + coords[:x], y + coords[:y] )
       next if tile.nil?
       {

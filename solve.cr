@@ -1,4 +1,3 @@
 require "./src/Aoc2019"
 
-network = Aoc2019::TwentyThree::ICNetwork.new 50
-network.run
+puts Aoc2019::TwentyFour.part1
